@@ -50,20 +50,12 @@ int main() {
   int width = 800, height = 600;
   Rasterizer rasterizer(width, height);
 
-  // array<Point3d, 3> v = {Point3d{5., 2., -10.}, Point3d{1., 3., -10.}, Point3d{2., 2., -30.}};
-  // array<Vec3b, 3> vc = {Vec3b{255, 0, 0}, Vec3b{0, 255, 0}, Vec3b{0, 0, 255}};
-  // Triangle triangle(move(v), move(vc));
-  // rasterizer.AddTriangle(triangle);
-
-  // Get Model
   Mat model = Mat::eye(4, 4, CV_64F);
   // Get View
-  // if eye.z == -100 ,cause dead loop
   Point3d eye(0, 0, 2);
   Point3d center(0, 0, 0);
   Point3d eyeup{0, -1, 0};
   // Mat view = GetViewMatrix(eye, center, eyeup);
-  //  Get Projection
   double fov = 45.0;
   double aspect = static_cast<double>(width) / height;
   double near = 0.1, far = 100.0;
@@ -88,7 +80,6 @@ int main() {
     rasterizer.clear();
     key = waitKey(10);
   }
-  // rasterizer.RasterizaAllTriangle();
 
   return 0;
 }
