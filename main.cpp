@@ -59,25 +59,36 @@ int main() {
   Mat model = Mat::eye(4, 4, CV_64F);
   // Get View
   // if eye.z == -100 ,cause dead loop
-  Point3d eye(5, 5, 5);
+  Point3d eye(0, 0, 2);
   Point3d center(0, 0, 0);
   Point3d eyeup{0, -1, 0};
-  Mat view = GetViewMatrix(eye, center, eyeup);
-  // Get Projection
+  // Mat view = GetViewMatrix(eye, center, eyeup);
+  //  Get Projection
   double fov = 45.0;
   double aspect = static_cast<double>(width) / height;
   double near = 0.1, far = 100.0;
   Mat projection = GetPerspectiveProjectionMatrix(fov, aspect, near, far);
 
   rasterizer.SetModelMatrix(model);
-  rasterizer.SetViewMatrix(view);
+  // rasterizer.SetViewMatrix(view);
   rasterizer.SetProjectionMatrix(projection);
 
-  rasterizer.AddTriangleFromObj("./models/cow/cow.obj");
+  rasterizer.AddTriangleFromObjWithTexture("./models/cow/cow.obj", "./models/cow/cow_texture.png");
 
-  rasterizer.RasterizeAllTriangleWithInterplate();
+  int key = -1;
+  double t = 0.;
+  while (key == -1) {
+    eye.x = sin(t) * 2;
+    eye.y = cos(t) * -2;
+    t += .1;
+    Mat view = GetViewMatrix(eye, center, eyeup);
+    rasterizer.SetViewMatrix(view);
+    rasterizer.RasterizeAllTriangleWithInterplate();
+    rasterizer.display("Line Drawing Example");
+    rasterizer.clear();
+    key = waitKey(10);
+  }
   // rasterizer.RasterizaAllTriangle();
 
-  rasterizer.display("Line Drawing Example");
   return 0;
 }
