@@ -16,6 +16,8 @@ public:
   void SetProjectionMatrix(const cv::Matx<double, 4, 4> &projectionMatrix);
 
   void AddTriangle(const Triangle &t);
+  void AddTriangleFromObj(const std::string &filename);
+
   void RasterizeAllTriangleWithInterplate();
   void RasterizaAllTriangle();
 
@@ -34,7 +36,8 @@ private:
   void DrawLine(cv::Point start, cv::Point end, const cv::Vec3b &color);
   void DrawTriangle(cv::Point p1, cv::Point p2, cv::Point p3, const cv::Vec3b &color);
   void DrawFullTriangle(cv::Point p1, cv::Point p2, cv::Point p3, const cv::Vec3b &color);
-  void DrawGradientTriangle(cv::Point p1, cv::Point p2, cv::Point p3, const cv::Vec3b &color1, const cv::Vec3b &color2, const cv::Vec3b &color3);
+  void DrawGradientTriangle(cv::Point p1, cv::Point p2, cv::Point p3, const cv::Vec3b &color1, const cv::Vec3b &color2,
+                            const cv::Vec3b &color3);
   bool ComputeBarycentric(cv::Point p1, cv::Point p2, cv::Point p3, cv::Point p, float &alpha, float &beta, float &gamma);
 
   cv::Point3d TransformVertex(const cv::Point3d &vertex);

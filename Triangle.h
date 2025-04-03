@@ -6,6 +6,12 @@
 class Triangle {
 public:
   Triangle(std::array<cv::Point3d, 3> &&_vertexes, std::array<cv::Vec3b, 3> &&_colors);
+  Triangle();
+
+  inline void SetVertexes(const std::array<cv::Point3d, 3> &_vertexes) { this->vertexes = _vertexes; }
+  inline void SetColors(const std::array<cv::Vec3b, 3> &_colors) { this->colors = _colors; }
+  inline void SetNormals(const std::array<cv::Vec3d, 3> &_normals) { this->normals = _normals; }
+  inline void SetTextureCoords(const std::array<cv::Vec2d, 3> &_textureCoords) { this->textureCoords = _textureCoords; }
 
   inline cv::Point3d a() const { return vertexes[0]; }
   inline cv::Point3d b() const { return vertexes[1]; }
@@ -17,4 +23,6 @@ public:
 private:
   std::array<cv::Point3d, 3> vertexes;
   std::array<cv::Vec3b, 3> colors;
+  std::array<cv::Vec3d, 3> normals;
+  std::array<cv::Vec2d, 3> textureCoords;
 };

@@ -50,17 +50,18 @@ int main() {
   int width = 800, height = 600;
   Rasterizer rasterizer(width, height);
 
-  array<Point3d, 3> v = {Point3d{5., 2., -10.}, Point3d{1., 3., -10.}, Point3d{2., 2., -30.}};
-  array<Vec3b, 3> vc = {Vec3b{255, 0, 0}, Vec3b{0, 255, 0}, Vec3b{0, 0, 255}};
-  Triangle triangle(move(v), move(vc));
-  rasterizer.AddTriangle(triangle);
+  // array<Point3d, 3> v = {Point3d{5., 2., -10.}, Point3d{1., 3., -10.}, Point3d{2., 2., -30.}};
+  // array<Vec3b, 3> vc = {Vec3b{255, 0, 0}, Vec3b{0, 255, 0}, Vec3b{0, 0, 255}};
+  // Triangle triangle(move(v), move(vc));
+  // rasterizer.AddTriangle(triangle);
 
   // Get Model
   Mat model = Mat::eye(4, 4, CV_64F);
   // Get View
-  Point3d eye(0, 0, 5);
+  // if eye.z == -100 ,cause dead loop
+  Point3d eye(5, 5, 5);
   Point3d center(0, 0, 0);
-  Point3d eyeup{0, 1, 0};
+  Point3d eyeup{0, -1, 0};
   Mat view = GetViewMatrix(eye, center, eyeup);
   // Get Projection
   double fov = 45.0;
@@ -72,13 +73,10 @@ int main() {
   rasterizer.SetViewMatrix(view);
   rasterizer.SetProjectionMatrix(projection);
 
-  cout << "Model Matrix: \n" << model << endl;
-  cout << "View Matrix: \n" << view << endl;
-  cout << "Projection Matrix: \n" << projection << endl;
-  cout << "MVP Matrix: \n" << projection * view * model << endl;
+  rasterizer.AddTriangleFromObj("./models/cow/cow.obj");
 
-  //rasterizer.RasterizeAllTriangleWithInterplate();
-  rasterizer.RasterizaAllTriangle();
+  rasterizer.RasterizeAllTriangleWithInterplate();
+  // rasterizer.RasterizaAllTriangle();
 
   rasterizer.display("Line Drawing Example");
   return 0;
