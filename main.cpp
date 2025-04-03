@@ -77,7 +77,8 @@ int main() {
   cout << "Projection Matrix: \n" << projection << endl;
   cout << "MVP Matrix: \n" << projection * view * model << endl;
 
-  rasterizer.Rasterize();
+  //rasterizer.RasterizeAllTriangleWithInterplate();
+  rasterizer.RasterizaAllTriangle();
 
   rasterizer.display("Line Drawing Example");
   return 0;

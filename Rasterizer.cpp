@@ -20,7 +20,7 @@ void Rasterizer::SetProjectionMatrix(const cv::Matx<double, 4, 4> &projectionMat
 
 void Rasterizer::AddTriangle(const Triangle &t) { triangles.push_back(t); }
 
-void Rasterizer::Rasterize() {
+void Rasterizer::RasterizeAllTriangleWithInterplate() {
   for (const auto &tri : triangles) {
     auto ta = TransformVertex(tri.a());
     auto tb = TransformVertex(tri.b());
@@ -33,6 +33,23 @@ void Rasterizer::Rasterize() {
     cv::Point pixel3 = toPixel(tc);
 
     DrawGradientTriangle(pixel1, pixel2, pixel3, tri.ac(), tri.bc(), tri.cc());
+  }
+}
+
+void Rasterizer::RasterizaAllTriangle() {
+
+  for (const auto &tri : triangles) {
+    auto ta = TransformVertex(tri.a());
+    auto tb = TransformVertex(tri.b());
+    auto tc = TransformVertex(tri.c());
+
+    auto toPixel = [this](const cv::Point3d &p) { return cv::Point(static_cast<int>((p.x + 1.) * 0.5 * width), static_cast<int>((p.y + 1.) * 0.5 * height)); };
+
+    cv::Point pixel1 = toPixel(ta);
+    cv::Point pixel2 = toPixel(tb);
+    cv::Point pixel3 = toPixel(tc);
+
+    DrawTriangle(pixel1, pixel2, pixel3, tri.ac());
   }
 }
 
@@ -91,7 +108,7 @@ cv::Point3d Rasterizer::TransformVertex(const cv::Point3d &vertex) {
   cv::Mat transformedH = projectionMatrix * viewMatrix * modelMatrix * vertexH;
   double w = transformedH.at<double>(3, 0);
 
-  std::cout<<"transformedH: " << transformedH << std::endl;
+  std::cout << "transformedH: " << transformedH << std::endl;
 
   return cv::Point3d(transformedH.at<double>(0, 0) / w, transformedH.at<double>(1, 0) / w, transformedH.at<double>(2, 0) / w);
 }

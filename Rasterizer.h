@@ -16,7 +16,8 @@ public:
   void SetProjectionMatrix(const cv::Matx<double, 4, 4> &projectionMatrix);
 
   void AddTriangle(const Triangle &t);
-  void Rasterize();
+  void RasterizeAllTriangleWithInterplate();
+  void RasterizaAllTriangle();
 
 private:
   cv::Mat image;
