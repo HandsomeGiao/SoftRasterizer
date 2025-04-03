@@ -16,7 +16,7 @@ public:
   void SetProjectionMatrix(const cv::Matx<double, 4, 4> &projectionMatrix);
 
   void AddTriangle(const Triangle &t);
-  void AddTriangleFromObj(const std::string &filename);
+  void AddTriangleFromObjWithTexture(const std::string &filename, const std::string &texturePath);
 
   void RasterizeAllTriangleWithInterplate();
   void RasterizaAllTriangle();

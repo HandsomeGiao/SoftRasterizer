@@ -1,18 +1,19 @@
 #include "Rasterizer.h"
 #include "Triangle.h"
 #include <fstream>
+#include <string>
 
 Rasterizer::Rasterizer(int _width, int _height)
-    : width(_width), height(_height), zbuffer(_width * _height, std::numeric_limits<float>::max()) {
+    : width(_width), height(_height), zbuffer(_width * _height, std::numeric_limits<float>::min()) {
   image = cv::Mat::zeros(height, width, CV_8UC3);
 }
 
-void Rasterizer::clear() { image.setTo(cv::Scalar(0, 0, 0)); }
-
-void Rasterizer::display(const std::string &windowName) {
-  cv::imshow(windowName, image);
-  cv::waitKey(0);
+void Rasterizer::clear() {
+  image.setTo(cv::Scalar(0, 0, 0));
+  zbuffer.assign(width * height, std::numeric_limits<float>::min());
 }
+
+void Rasterizer::display(const std::string &windowName) { cv::imshow(windowName, image); }
 
 void Rasterizer::SetModelMatrix(const cv::Matx<double, 4, 4> &modelMatrix) { this->modelMatrix = cv::Mat(modelMatrix); }
 
@@ -24,10 +25,14 @@ void Rasterizer::SetProjectionMatrix(const cv::Matx<double, 4, 4> &projectionMat
 
 void Rasterizer::AddTriangle(const Triangle &t) { triangles.push_back(t); }
 
-void Rasterizer::AddTriangleFromObj(const std::string &filename) {
+void Rasterizer::AddTriangleFromObjWithTexture(const std::string &filename, const std::string &texturePath) {
   std::ifstream file(filename);
   if (!file.is_open()) {
     throw std::runtime_error("Failed to open file: " + filename);
+  }
+  cv::Mat texture = cv::imread(texturePath, cv::IMREAD_COLOR);
+  if (texture.empty()) {
+    throw std::runtime_error("Failed to load texture: " + texturePath);
   }
 
   std::vector<cv::Point3d> vertexes;
@@ -62,6 +67,7 @@ void Rasterizer::AddTriangleFromObj(const std::string &filename) {
       std::array<cv::Point3d, 3> faceVertexes;
       std::array<cv::Vec3d, 3> faceNormals;
       std::array<cv::Vec2d, 3> faceTextureCoords;
+      std::array<cv::Vec3b, 3> faceColors;
 
       for (int i = 0; i < 3; ++i) {
         int index0, index1, index2;
@@ -70,10 +76,19 @@ void Rasterizer::AddTriangleFromObj(const std::string &filename) {
         faceVertexes[i] = vertexes[index0 - 1];
         faceNormals[i] = normals[index1 - 1];
         faceTextureCoords[i] = textureCoords[index2 - 1];
+        // get color
+        double u = std::clamp(faceTextureCoords[i][0], 0.0, 1.0);
+        double v = std::clamp(faceTextureCoords[i][1], 0.0, 1.0);
+        v = 1.0 - v;
+        int x = static_cast<int>(u * (texture.cols - 1));
+        int y = static_cast<int>(v * (texture.rows - 1));
+
+        faceColors[i] = texture.at<cv::Vec3b>(y, x);
       }
       triangle.SetVertexes(faceVertexes);
       triangle.SetNormals(faceNormals);
       triangle.SetTextureCoords(faceTextureCoords);
+      triangle.SetColors(faceColors);
       triangles.push_back(triangle);
     }
   }
@@ -93,7 +108,29 @@ void Rasterizer::RasterizeAllTriangleWithInterplate() {
     cv::Point pixel2 = toPixel(tb);
     cv::Point pixel3 = toPixel(tc);
 
-    DrawGradientTriangle(pixel1, pixel2, pixel3, tri.ac(), tri.bc(), tri.cc());
+    int minX = std::min({pixel1.x, pixel2.x, pixel3.x});
+    minX = std::max(0, minX);
+    int maxX = std::max({pixel1.x, pixel2.x, pixel3.x});
+    maxX = std::min(width - 1, maxX);
+    int minY = std::min({pixel1.y, pixel2.y, pixel3.y});
+    minY = std::max(0, minY);
+    int maxY = std::max({pixel1.y, pixel2.y, pixel3.y});
+    maxY = std::min(height - 1, maxY);
+
+    for (int x = minX; x <= maxX; ++x) {
+      for (int y = minY; y <= maxY; ++y) {
+        float alpha, beta, gamma;
+        if (ComputeBarycentric(pixel1, pixel2, pixel3, cv::Point(x, y), alpha, beta, gamma)) {
+          float zinterp = alpha * ta.z + beta * tb.z + gamma * tc.z;
+          if (zbuffer[y * width + x] < zinterp) {
+            zbuffer[y * width + x] = zinterp;
+            cv::Vec3b color = alpha * tri.ac() + beta * tri.bc() + gamma * tri.cc();
+            setPixel(x, y, color);
+          }
+        }
+      }
+    }
+    // DrawGradientTriangle(pixel1, pixel2, pixel3, tri.ac(), tri.bc(), tri.cc());
   }
 }
 
@@ -144,7 +181,6 @@ void Rasterizer::DrawGradientTriangle(cv::Point p1, cv::Point p2, cv::Point p3, 
       float alpha, beta, gamma;
       if (ComputeBarycentric(p1, p2, p3, cv::Point(x, y), alpha, beta, gamma)) {
         cv::Vec3b color = alpha * color1 + beta * color2 + gamma * color3;
-
         setPixel(x, y, color);
       }
     }
@@ -169,9 +205,6 @@ cv::Point3d Rasterizer::TransformVertex(const cv::Point3d &vertex) {
   cv::Mat transformedH = projectionMatrix * viewMatrix * modelMatrix * vertexH;
   double w = transformedH.at<double>(3, 0);
 
-  // std::cout << "transformedH: " << transformedH << std::endl;
-  if (w - 0. < 1e-2)
-    int x = 0;
   return cv::Point3d(transformedH.at<double>(0, 0) / w, transformedH.at<double>(1, 0) / w, transformedH.at<double>(2, 0) / w);
 }
 
