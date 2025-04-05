@@ -1,5 +1,6 @@
 #include "Rasterizer.h"
 #include "Triangle.h"
+#include "global.h"
 #include <fstream>
 #include <string>
 
@@ -97,7 +98,20 @@ void Rasterizer::AddTriangleFromObjWithTexture(const std::string &filename, cons
 }
 
 void Rasterizer::rasterize() {
-  
+  double f1 = (global::far - global::near) / 2.0;
+  double f2 = (global::far + global::near) / 2.0;
+  auto mvp = projectionMatrix * viewMatrix * modelMatrix;
+
+  for (const auto &tri : triangles) {
+    Triangle newtri = tri;
+
+    std::array<cv::Vec4d, 3> mm;
+    mm[0] = viewMatrix * modelMatrix * tri.a4();
+    mm[1] = viewMatrix * modelMatrix * tri.b4();
+    mm[2] = viewMatrix * modelMatrix * tri.c4();
+    std::array<cv::Vec3d, 3> viewspace_pos;
+    std::transform(mm.begin(), mm.end(), viewspace_pos.begin(), [](cv::Vec4d &v) { return cv::Vec3d(v[0], v[1], v[2]); });
+  }
 }
 
 void Rasterizer::setPixel(int x, int y, const cv::Vec3d &color) {

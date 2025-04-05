@@ -9,9 +9,9 @@ using namespace std;
 using namespace cv;
 
 Mat GetViewMatrix() {
-  Vec3d z = eye - center;
+  Vec3d z = global::eye - global::center;
   z = normalize(z);
-  Vec3d x = eyeup.cross(z);
+  Vec3d x = global::eyeup.cross(z);
   x = normalize(x);
   Vec3d y = z.cross(x);
   y = normalize(y);
@@ -28,29 +28,29 @@ Mat GetViewMatrix() {
   view.at<double>(2, 1) = z[1];
   view.at<double>(2, 2) = z[2];
 
-  view.at<double>(0, 3) = -x.dot(eye);
-  view.at<double>(1, 3) = -y.dot(eye);
-  view.at<double>(2, 3) = -z.dot(eye);
+  view.at<double>(0, 3) = -x.dot(global::eye);
+  view.at<double>(1, 3) = -y.dot(global::eye);
+  view.at<double>(2, 3) = -z.dot(global::eye);
 
   return view;
 }
 
 Mat GetPerspectiveProjectionMatrix() {
-  double rad = fov * CV_PI / 180.0;
+  double rad = global::fov * CV_PI / 180.0;
   double tanHalfFov = tan(rad / 2.0);
 
   cv::Mat projection = cv::Mat::zeros(4, 4, CV_64F);
-  projection.at<double>(0, 0) = 1.0 / (aspect * tanHalfFov);
+  projection.at<double>(0, 0) = 1.0 / (global::aspect * tanHalfFov);
   projection.at<double>(1, 1) = 1.0 / tanHalfFov;
-  projection.at<double>(2, 2) = -(far + near) / (far - near);
-  projection.at<double>(2, 3) = -2.0 * far * near / (far - near);
+  projection.at<double>(2, 2) = -(global::far + global::near) / (global::far - global::near);
+  projection.at<double>(2, 3) = -2.0 * global::far * global::near / (global::far - global::near);
   projection.at<double>(3, 2) = -1.0;
 
   return projection;
 }
 
 int main() {
-  Rasterizer rasterizer(width, height);
+  Rasterizer rasterizer(global::width, global::height);
 
   Mat model = Mat::eye(4, 4, CV_64F);
   Mat view = GetViewMatrix();
@@ -64,6 +64,7 @@ int main() {
 
   rasterizer.rasterize();
   rasterizer.display("Line Drawing Example");
+  cv::waitKey(0);
 
   return 0;
 }

@@ -28,9 +28,9 @@ private:
   std::vector<Light> lights;
   std::vector<double> zbuffer;
 
-  cv::Mat modelMatrix = cv::Mat::eye(4, 4, CV_64F);      // Initialize to identity matrix
-  cv::Mat viewMatrix = cv::Mat::eye(4, 4, CV_64F);       // Initialize to identity matrix
-  cv::Mat projectionMatrix = cv::Mat::eye(4, 4, CV_64F); // Initialize to identity matrix
+  cv::Matx<double, 4, 4> modelMatrix = cv::Matx<double, 4, 4>::eye();      // Initialize to identity matrix
+  cv::Matx<double, 4, 4> viewMatrix = cv::Matx<double, 4, 4>::eye();       // Initialize to identity matrix
+  cv::Matx<double, 4, 4> projectionMatrix = cv::Matx<double, 4, 4>::eye(); // Initialize to identity matrix
 
   void setPixel(int x, int y, const cv::Vec3d &color);
 };
