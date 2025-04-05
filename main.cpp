@@ -6,7 +6,7 @@
 using namespace std;
 using namespace cv;
 
-Mat GetViewMatrix(Point3d eye, Point3d center, Vec3d up) {
+Mat GetViewMatrix(Vec3d eye, Vec3d center, Vec3d up) {
   Vec3d z = eye - center;
   z = normalize(z);
   Vec3d x = up.cross(z);
@@ -19,6 +19,7 @@ Mat GetViewMatrix(Point3d eye, Point3d center, Vec3d up) {
   view.at<double>(0, 1) = x[1];
   view.at<double>(0, 2) = x[2];
   view.at<double>(1, 0) = y[0];
+
   view.at<double>(1, 1) = y[1];
   view.at<double>(1, 2) = y[2];
   view.at<double>(2, 0) = z[0];
@@ -52,34 +53,23 @@ int main() {
 
   Mat model = Mat::eye(4, 4, CV_64F);
   // Get View
-  Point3d eye(0, 0, 2);
-  Point3d center(0, 0, 0);
-  Point3d eyeup{0, -1, 0};
-  // Mat view = GetViewMatrix(eye, center, eyeup);
+  Vec3d eye(0., 0., 2.);
+  Vec3d center(0., 0., 0.);
+  Vec3d eyeup{0., -1., 0.};
+  Mat view = GetViewMatrix(eye, center, eyeup);
   double fov = 45.0;
   double aspect = static_cast<double>(width) / height;
   double near = 0.1, far = 100.0;
   Mat projection = GetPerspectiveProjectionMatrix(fov, aspect, near, far);
 
   rasterizer.SetModelMatrix(model);
-  // rasterizer.SetViewMatrix(view);
+  rasterizer.SetViewMatrix(view);
   rasterizer.SetProjectionMatrix(projection);
 
   rasterizer.AddTriangleFromObjWithTexture("./models/cow/cow.obj", "./models/cow/cow_texture.png");
 
-  int key = -1;
-  double t = 0.;
-  while (key == -1) {
-    eye.x = sin(t) * 2;
-    eye.y = cos(t) * -2;
-    t += .1;
-    Mat view = GetViewMatrix(eye, center, eyeup);
-    rasterizer.SetViewMatrix(view);
-    rasterizer.RasterizeAllTriangleWithInterplate();
-    rasterizer.display("Line Drawing Example");
-    rasterizer.clear();
-    key = waitKey(10);
-  }
+  rasterizer.rasterize();
+  rasterizer.display("Line Drawing Example");
 
   return 0;
 }
