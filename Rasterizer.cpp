@@ -97,5 +97,11 @@ void Rasterizer::AddTriangleFromObjWithTexture(const std::string &filename, cons
 }
 
 void Rasterizer::rasterize() {
+  
+}
 
+void Rasterizer::setPixel(int x, int y, const cv::Vec3d &color) {
+  if (x >= 0 && x < width && y >= 0 && y < height)
+    image.at<cv::Vec3b>(y, x) =
+        cv::Vec3b(static_cast<uchar>(color[0] * 255), static_cast<uchar>(color[1] * 255), static_cast<uchar>(color[2] * 255));
 }

@@ -1,15 +1,17 @@
+#include "Light.h"
 #include "Rasterizer.h"
 #include "Triangle.h"
+#include "global.h"
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
 using namespace std;
 using namespace cv;
 
-Mat GetViewMatrix(Vec3d eye, Vec3d center, Vec3d up) {
+Mat GetViewMatrix() {
   Vec3d z = eye - center;
   z = normalize(z);
-  Vec3d x = up.cross(z);
+  Vec3d x = eyeup.cross(z);
   x = normalize(x);
   Vec3d y = z.cross(x);
   y = normalize(y);
@@ -33,7 +35,7 @@ Mat GetViewMatrix(Vec3d eye, Vec3d center, Vec3d up) {
   return view;
 }
 
-Mat GetPerspectiveProjectionMatrix(double fov, double aspect, double near, double far) {
+Mat GetPerspectiveProjectionMatrix() {
   double rad = fov * CV_PI / 180.0;
   double tanHalfFov = tan(rad / 2.0);
 
@@ -48,19 +50,11 @@ Mat GetPerspectiveProjectionMatrix(double fov, double aspect, double near, doubl
 }
 
 int main() {
-  int width = 800, height = 600;
   Rasterizer rasterizer(width, height);
 
   Mat model = Mat::eye(4, 4, CV_64F);
-  // Get View
-  Vec3d eye(0., 0., 2.);
-  Vec3d center(0., 0., 0.);
-  Vec3d eyeup{0., -1., 0.};
-  Mat view = GetViewMatrix(eye, center, eyeup);
-  double fov = 45.0;
-  double aspect = static_cast<double>(width) / height;
-  double near = 0.1, far = 100.0;
-  Mat projection = GetPerspectiveProjectionMatrix(fov, aspect, near, far);
+  Mat view = GetViewMatrix();
+  Mat projection = GetPerspectiveProjectionMatrix();
 
   rasterizer.SetModelMatrix(model);
   rasterizer.SetViewMatrix(view);
