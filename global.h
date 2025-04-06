@@ -12,4 +12,5 @@ extern cv::Vec3d center;
 extern cv::Vec3d eyeup;
 extern double fov;
 extern double aspect;
+extern cv::Vec3d ambientLight;
 } // namespace global

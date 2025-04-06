@@ -19,6 +19,7 @@ public:
   inline void AddLight(const Light &light) { lights.push_back(light); }
 
   void rasterize();
+  inline void writeImage(const std::string &filename) const { cv::imwrite(filename, image); }
 
 private:
   cv::Mat image;
@@ -33,4 +34,8 @@ private:
   cv::Matx<double, 4, 4> projectionMatrix = cv::Matx<double, 4, 4>::eye(); // Initialize to identity matrix
 
   void setPixel(int x, int y, const cv::Vec3d &color);
+  void rasterizeTriangle(const Triangle &triangle, const std::array<cv::Vec3d, 3> &viewspace_pos);
+  bool insideTriangle(const Triangle &tri_clipspace, int x, int y) const;
+  std::tuple<float, float, float> computeBarycentric2D(float x, float y, const std::array<cv::Vec3d, 3> v);
+  cv::Vec3d BillnPhongShading(const cv::Vec3d color, const cv::Vec3d &viewPos, const cv::Vec3d &normal, const cv::Vec2d texCoord);
 };

@@ -8,6 +8,27 @@
 using namespace std;
 using namespace cv;
 
+Mat GetModelMatrix() {
+  double angle = -135 * 3.1415926 / 180.;
+  Mat rotation = Mat::zeros(4, 4, CV_64F);
+  rotation.at<double>(0, 0) = cos(angle);
+  rotation.at<double>(0, 2) = sin(angle);
+  rotation.at<double>(1, 1) = 1;
+  rotation.at<double>(2, 0) = -sin(angle);
+  rotation.at<double>(2, 2) = cos(angle);
+  rotation.at<double>(3, 3) = 1;
+
+  Mat scale = Mat::zeros(4, 4, CV_64F);
+  scale.at<double>(0, 0) = 2.5;
+  scale.at<double>(1, 1) = 2.5;
+  scale.at<double>(2, 2) = 2.5;
+  scale.at<double>(3, 3) = 1.0;
+
+  Mat translate = Mat::eye(4, 4, CV_64F);
+
+  return translate * rotation * scale;
+}
+
 Mat GetViewMatrix() {
   Vec3d z = global::eye - global::center;
   z = normalize(z);
@@ -52,7 +73,7 @@ Mat GetPerspectiveProjectionMatrix() {
 int main() {
   Rasterizer rasterizer(global::width, global::height);
 
-  Mat model = Mat::eye(4, 4, CV_64F);
+  Mat model = GetModelMatrix();
   Mat view = GetViewMatrix();
   Mat projection = GetPerspectiveProjectionMatrix();
 
@@ -60,10 +81,15 @@ int main() {
   rasterizer.SetViewMatrix(view);
   rasterizer.SetProjectionMatrix(projection);
 
+  Light l1{{20, -20, 20}, {500, 500, 500}}, l2{{-20, -20, 0}, {500, 500, 500}};
+  rasterizer.AddLight(l1);
+  rasterizer.AddLight(l2);
+
   rasterizer.AddTriangleFromObjWithTexture("./models/cow/cow.obj", "./models/cow/cow_texture.png");
 
   rasterizer.rasterize();
   rasterizer.display("Line Drawing Example");
+  rasterizer.writeImage("output.png");
   cv::waitKey(0);
 
   return 0;

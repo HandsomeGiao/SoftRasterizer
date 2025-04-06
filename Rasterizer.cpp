@@ -5,13 +5,13 @@
 #include <string>
 
 Rasterizer::Rasterizer(int _width, int _height)
-    : width(_width), height(_height), zbuffer(_width * _height, std::numeric_limits<float>::min()) {
+    : width(_width), height(_height), zbuffer(_width * _height, std::numeric_limits<float>::max()) {
   image = cv::Mat::zeros(height, width, CV_8UC3);
 }
 
 void Rasterizer::clear() {
   image.setTo(cv::Scalar(0, 0, 0));
-  zbuffer.assign(width * height, std::numeric_limits<float>::min());
+  zbuffer.assign(width * height, std::numeric_limits<float>::max());
 }
 
 void Rasterizer::display(const std::string &windowName) { cv::imshow(windowName, image); }
@@ -82,11 +82,9 @@ void Rasterizer::AddTriangleFromObjWithTexture(const std::string &filename, cons
         int x = static_cast<int>(u * (texture.cols - 1));
         int y = static_cast<int>(v * (texture.rows - 1));
 
-        for (int i = 0; i < 3; ++i) {
-          faceColors[i][0] = texture.at<cv::Vec3b>(y, x)[0] / 255.;
-          faceColors[i][1] = texture.at<cv::Vec3b>(y, x)[1] / 255.;
-          faceColors[i][2] = texture.at<cv::Vec3b>(y, x)[2] / 255.;
-        }
+        faceColors[i][0] = texture.at<cv::Vec3b>(y, x)[0] / 255.;
+        faceColors[i][1] = texture.at<cv::Vec3b>(y, x)[1] / 255.;
+        faceColors[i][2] = texture.at<cv::Vec3b>(y, x)[2] / 255.;
       }
       triangle.SetVertexes(faceVertexes);
       triangle.SetNormals(faceNormals);
@@ -103,14 +101,39 @@ void Rasterizer::rasterize() {
   auto mvp = projectionMatrix * viewMatrix * modelMatrix;
 
   for (const auto &tri : triangles) {
-    Triangle newtri = tri;
+    Triangle tri_clipspace;
+    tri_clipspace.SetColors({tri.ac(), tri.bc(), tri.cc()});
 
     std::array<cv::Vec4d, 3> mm;
     mm[0] = viewMatrix * modelMatrix * tri.a4();
     mm[1] = viewMatrix * modelMatrix * tri.b4();
     mm[2] = viewMatrix * modelMatrix * tri.c4();
     std::array<cv::Vec3d, 3> viewspace_pos;
-    std::transform(mm.begin(), mm.end(), viewspace_pos.begin(), [](cv::Vec4d &v) { return cv::Vec3d(v[0], v[1], v[2]); });
+    std::transform(mm.begin(), mm.end(), viewspace_pos.begin(), [](const cv::Vec4d &v) { return cv::Vec3d(v[0], v[1], v[2]); });
+
+    std::array<cv::Vec4d, 3> pixelPos{mvp * tri.a4(), mvp * tri.b4(), mvp * tri.c4()};
+    for (int i = 0; i < 3; ++i) {
+      pixelPos[i] /= pixelPos[i][3];
+      pixelPos[i][0] = 0.5 * global::width * (pixelPos[i][0] + 1.0);
+      pixelPos[i][1] = 0.5 * global::height * (pixelPos[i][1] + 1.0);
+      pixelPos[i][2] = f1 * pixelPos[i][2] + f2;
+    }
+    tri_clipspace.SetVertexes({cv::Vec3d(pixelPos[0][0], pixelPos[0][1], pixelPos[0][2]),
+                               cv::Vec3d(pixelPos[1][0], pixelPos[1][1], pixelPos[1][2]),
+                               cv::Vec3d(pixelPos[2][0], pixelPos[2][1], pixelPos[2][2])});
+
+    cv::Matx<double, 4, 4> inv_t_mv = (viewMatrix * modelMatrix).inv().t();
+    std::array<cv::Vec4d, 3> clipspace_normal;
+    clipspace_normal[0] = inv_t_mv * tri.an4();
+    clipspace_normal[1] = inv_t_mv * tri.bn4();
+    clipspace_normal[2] = inv_t_mv * tri.cn4();
+    // std::cout << clipspace_normal[0] << std::endl;
+
+    tri_clipspace.SetNormals({cv::Vec3d(clipspace_normal[0][0], clipspace_normal[0][1], clipspace_normal[0][2]),
+                              cv::Vec3d(clipspace_normal[1][0], clipspace_normal[1][1], clipspace_normal[1][2]),
+                              cv::Vec3d(clipspace_normal[2][0], clipspace_normal[2][1], clipspace_normal[2][2])});
+    // ??? set color
+    rasterizeTriangle(tri_clipspace, viewspace_pos);
   }
 }
 
@@ -118,4 +141,84 @@ void Rasterizer::setPixel(int x, int y, const cv::Vec3d &color) {
   if (x >= 0 && x < width && y >= 0 && y < height)
     image.at<cv::Vec3b>(y, x) =
         cv::Vec3b(static_cast<uchar>(color[0] * 255), static_cast<uchar>(color[1] * 255), static_cast<uchar>(color[2] * 255));
+}
+
+void Rasterizer::rasterizeTriangle(const Triangle &triangle_clipspace, const std::array<cv::Vec3d, 3> &viewspace_pos) {
+  cv::Vec2i topleft, bottomright;
+  topleft[0] = std::max({triangle_clipspace.a()[1], triangle_clipspace.b()[1], triangle_clipspace.c()[1]});
+  topleft[1] = std::min({triangle_clipspace.a()[0], triangle_clipspace.b()[0], triangle_clipspace.c()[0]});
+  bottomright[0] = std::min({triangle_clipspace.a()[1], triangle_clipspace.b()[1], triangle_clipspace.c()[1]});
+  bottomright[1] = std::max({triangle_clipspace.a()[0], triangle_clipspace.b()[0], triangle_clipspace.c()[0]});
+
+  for (int y = bottomright[0]; y <= topleft[0]; y++) {
+    for (int x = topleft[1]; x <= bottomright[1]; x++) {
+      if (insideTriangle(triangle_clipspace, x, y)) {
+        auto [alpha, beta, gamma] = computeBarycentric2D(x, y, triangle_clipspace.getVertexes());
+        float Z = 1. / (alpha + beta + gamma);
+        float zp = alpha * triangle_clipspace.a()[2] + beta * triangle_clipspace.b()[2] + gamma * triangle_clipspace.c()[2];
+        zp *= Z;
+        if (zp < zbuffer[y * global::width + x]) {
+          zbuffer[y * global::width + x] = zp;
+          auto interp_color = alpha * triangle_clipspace.ac() + beta * triangle_clipspace.bc() + gamma * triangle_clipspace.cc();
+          auto interp_normal = alpha * triangle_clipspace.an() + beta * triangle_clipspace.bn() + gamma * triangle_clipspace.cn();
+          auto interp_textureCoord = alpha * triangle_clipspace.getTextureCoords()[0] +
+                                     beta * triangle_clipspace.getTextureCoords()[1] +
+                                     gamma * triangle_clipspace.getTextureCoords()[2];
+          auto interp_shadingCoord = alpha * viewspace_pos[0] + beta * viewspace_pos[1] + gamma * viewspace_pos[2];
+          auto color = BillnPhongShading(interp_color, interp_shadingCoord, cv::normalize(interp_normal), interp_textureCoord);
+          setPixel(x, y, color);
+        }
+      }
+    }
+  }
+}
+
+bool Rasterizer::insideTriangle(const Triangle &tri_clipspace, int x, int y) const {
+  cv::Vec3d v[3];
+  v[0] = cv::Vec3d(tri_clipspace.a()[0], tri_clipspace.a()[1], 1.);
+  v[1] = cv::Vec3d(tri_clipspace.b()[0], tri_clipspace.b()[1], 1.);
+  v[2] = cv::Vec3d(tri_clipspace.c()[0], tri_clipspace.c()[1], 1.);
+
+  cv::Vec3d f0, f1, f2;
+  f0 = v[1].cross(v[0]);
+  f1 = v[2].cross(v[1]);
+  f2 = v[0].cross(v[2]);
+  cv::Vec3d p(x, y, 1.);
+  if ((p.dot(f0) * f0.dot(v[2]) > 0) && (p.dot(f1) * f1.dot(v[0]) > 0) && (p.dot(f2) * f2.dot(v[1]) > 0))
+    return true;
+  return false;
+}
+
+std::tuple<float, float, float> Rasterizer::computeBarycentric2D(float x, float y, const std::array<cv::Vec3d, 3> v) {
+  float c1 = (x * (v[1][1] - v[2][1]) + (v[2][0] - v[1][0]) * y + v[1][0] * v[2][1] - v[2][0] * v[1][1]) /
+             (v[0][0] * (v[1][1] - v[2][1]) + (v[2][0] - v[1][0]) * v[0][1] + v[1][0] * v[2][1] - v[2][0] * v[1][1]);
+  float c2 = (x * (v[2][1] - v[0][1]) + (v[0][0] - v[2][0]) * y + v[2][0] * v[0][1] - v[0][0] * v[2][1]) /
+             (v[1][0] * (v[2][1] - v[0][1]) + (v[0][0] - v[2][0]) * v[1][1] + v[2][0] * v[0][1] - v[0][0] * v[2][1]);
+  float c3 = 1.0f - c1 - c2;
+  return {c1, c2, c3};
+}
+
+cv::Vec3d Rasterizer::BillnPhongShading(const cv::Vec3d color, const cv::Vec3d &point, const cv::Vec3d &normal,
+                                        const cv::Vec2d texCoord) {
+  cv::Vec3d ka = cv::Vec3d(0.005, 0.005, 0.005);    // Ambient light color
+  cv::Vec3d kd = color;                             // Diffuse light color
+  cv::Vec3d ks = cv::Vec3d(0.7937, 0.7937, 0.7937); // Specular light color
+
+  cv::Vec3d result_color = cv::Vec3d(0, 0, 0);
+  for (const auto &light : lights) {
+    // diffuse
+    cv::Vec3d L = cv::normalize(light.position - point);
+    double l_dot_n = std::max(0., normal.dot(L));
+    cv::Vec3d diffuse = kd.mul(light.intensity / cv::norm(light.position - point, cv::NORM_L2SQR)) * l_dot_n;
+    // specular
+    cv::Vec3d h = cv::normalize(L + cv::normalize(global::eye - point));
+    double h_dot_n = std::max(0., normal.dot(h));
+    cv::Vec3d specular = ks.mul(light.intensity / cv::norm(light.position - point, cv::NORM_L2SQR)) * std::pow(h_dot_n, 300);
+    // ambient
+    cv::Vec3d ambient = ka.mul(global::ambientLight);
+    // accumulate
+    result_color += diffuse + specular + ambient;
+  }
+
+  return result_color;
 }
