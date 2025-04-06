@@ -125,9 +125,12 @@ void Rasterizer::rasterize() {
     cv::Matx<double, 4, 4> inv_t_mv = (viewMatrix * modelMatrix).inv().t();
     std::array<cv::Vec4d, 3> clipspace_normal;
     clipspace_normal[0] = inv_t_mv * tri.an4();
+    // clipspace_normal[0] /= clipspace_normal[0][3];
     clipspace_normal[1] = inv_t_mv * tri.bn4();
+    // clipspace_normal[1] /= clipspace_normal[1][3];
     clipspace_normal[2] = inv_t_mv * tri.cn4();
-    // std::cout << clipspace_normal[0] << std::endl;
+    // clipspace_normal[2] /= clipspace_normal[2][3];
+    //  std::cout << clipspace_normal[0] << std::endl;
 
     tri_clipspace.SetNormals({cv::Vec3d(clipspace_normal[0][0], clipspace_normal[0][1], clipspace_normal[0][2]),
                               cv::Vec3d(clipspace_normal[1][0], clipspace_normal[1][1], clipspace_normal[1][2]),
@@ -137,10 +140,15 @@ void Rasterizer::rasterize() {
   }
 }
 
-void Rasterizer::setPixel(int x, int y, const cv::Vec3d &color) {
-  if (x >= 0 && x < width && y >= 0 && y < height)
+void Rasterizer::setPixel(int x, int y, const cv::Vec3d &_color) {
+  if (x >= 0 && x < width && y >= 0 && y < height) {
+    cv::Vec3d color{std::clamp(_color[0], 0.0, 1.0), std::clamp(_color[1], 0.0, 1.0), std::clamp(_color[2], 0.0, 1.0)};
+    color[0] = std::clamp(color[0], 0.0, 1.0);
+    color[1] = std::clamp(color[1], 0.0, 1.0);
+    color[2] = std::clamp(color[2], 0.0, 1.0);
     image.at<cv::Vec3b>(y, x) =
         cv::Vec3b(static_cast<uchar>(color[0] * 255), static_cast<uchar>(color[1] * 255), static_cast<uchar>(color[2] * 255));
+  }
 }
 
 void Rasterizer::rasterizeTriangle(const Triangle &triangle_clipspace, const std::array<cv::Vec3d, 3> &viewspace_pos) {
@@ -194,7 +202,8 @@ std::tuple<float, float, float> Rasterizer::computeBarycentric2D(float x, float 
              (v[0][0] * (v[1][1] - v[2][1]) + (v[2][0] - v[1][0]) * v[0][1] + v[1][0] * v[2][1] - v[2][0] * v[1][1]);
   float c2 = (x * (v[2][1] - v[0][1]) + (v[0][0] - v[2][0]) * y + v[2][0] * v[0][1] - v[0][0] * v[2][1]) /
              (v[1][0] * (v[2][1] - v[0][1]) + (v[0][0] - v[2][0]) * v[1][1] + v[2][0] * v[0][1] - v[0][0] * v[2][1]);
-  float c3 = 1.0f - c1 - c2;
+  float c3 = (x * (v[0][1] - v[1][1]) + (v[1][0] - v[0][0]) * y + v[0][0] * v[1][1] - v[1][0] * v[0][1]) /
+             (v[2][0] * (v[0][1] - v[1][1]) + (v[1][0] - v[0][0]) * v[2][1] + v[0][0] * v[1][1] - v[1][0] * v[0][1]);
   return {c1, c2, c3};
 }
 
