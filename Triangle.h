@@ -9,7 +9,6 @@ public:
   Triangle();
 
   inline void SetVertexes(const std::array<cv::Vec3d, 3> &_vertexes) { this->vertexes = _vertexes; }
-  inline void SetColors(const std::array<cv::Vec3d, 3> &_colors) { this->colors = _colors; }
   inline void SetNormals(const std::array<cv::Vec3d, 3> &_normals) { this->normals = _normals; }
   inline void SetTextureCoords(const std::array<cv::Vec2d, 3> &_textureCoords) { this->textureCoords = _textureCoords; }
 
@@ -19,9 +18,6 @@ public:
   inline cv::Vec4d a4() const { return cv::Vec4d(vertexes[0][0], vertexes[0][1], vertexes[0][2], 1.); }
   inline cv::Vec4d b4() const { return cv::Vec4d(vertexes[1][0], vertexes[1][1], vertexes[1][2], 1.); }
   inline cv::Vec4d c4() const { return cv::Vec4d(vertexes[2][0], vertexes[2][1], vertexes[2][2], 1.); }
-  inline cv::Vec3d ac() const { return colors[0]; }
-  inline cv::Vec3d bc() const { return colors[1]; }
-  inline cv::Vec3d cc() const { return colors[2]; }
   inline cv::Vec3d an() const { return normals[0]; }
   inline cv::Vec3d bn() const { return normals[1]; }
   inline cv::Vec3d cn() const { return normals[2]; }
@@ -33,7 +29,6 @@ public:
 
 private:
   std::array<cv::Vec3d, 3> vertexes;
-  std::array<cv::Vec3d, 3> colors;
   std::array<cv::Vec3d, 3> normals;
   std::array<cv::Vec2d, 3> textureCoords;
 };

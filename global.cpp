@@ -2,7 +2,7 @@
 
 namespace global {
 double near = 0.1;
-double far = 100.0;
+double far = 50.0;
 int width = 800;
 int height = 600;
 cv::Vec3d eye(0.0, 0.0, 10.0);

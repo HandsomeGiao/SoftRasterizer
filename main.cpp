@@ -88,8 +88,10 @@ int main() {
   rasterizer.AddTriangleFromObjWithTexture("./models/cow/cow.obj", "./models/cow/cow_texture.png");
 
   rasterizer.rasterize();
-  rasterizer.display("Line Drawing Example");
-  rasterizer.writeImage("output.png");
+  cv::Mat image = rasterizer.getImage();
+  cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
+  cv::imshow("Rasterizer", image);
+  cv::imwrite("output.png", image);
   cv::waitKey(0);
 
   return 0;

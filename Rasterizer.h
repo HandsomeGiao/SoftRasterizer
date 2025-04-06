@@ -20,9 +20,11 @@ public:
 
   void rasterize();
   inline void writeImage(const std::string &filename) const { cv::imwrite(filename, image); }
+  inline cv::Mat getImage() const { return image; }
 
 private:
   cv::Mat image;
+  cv::Mat texture;
   int width, height;
 
   std::vector<Triangle> triangles;
@@ -37,5 +39,6 @@ private:
   void rasterizeTriangle(const Triangle &triangle, const std::array<cv::Vec3d, 3> &viewspace_pos);
   bool insideTriangle(const Triangle &tri_clipspace, int x, int y) const;
   std::tuple<float, float, float> computeBarycentric2D(float x, float y, const std::array<cv::Vec3d, 3> v);
-  cv::Vec3d BillnPhongShading(const cv::Vec3d color, const cv::Vec3d &viewPos, const cv::Vec3d &normal, const cv::Vec2d texCoord);
+  cv::Vec3d getTexColor(double u,double v)const;
+  cv::Vec3d BillnPhongShading(const cv::Vec3d &viewPos, const cv::Vec3d &normal, const cv::Vec2d texCoord);
 };

@@ -29,10 +29,11 @@ void Rasterizer::AddTriangleFromObjWithTexture(const std::string &filename, cons
   if (!file.is_open()) {
     throw std::runtime_error("Failed to open file: " + filename);
   }
-  cv::Mat texture = cv::imread(texturePath, cv::IMREAD_COLOR);
+  texture = cv::imread(texturePath);
   if (texture.empty()) {
     throw std::runtime_error("Failed to load texture: " + texturePath);
   }
+  cv::cvtColor(texture, texture, cv::COLOR_RGB2BGR);
 
   std::vector<cv::Vec3d> vertexes;
   std::vector<std::array<cv::Vec3d, 3>> colors;
@@ -66,7 +67,6 @@ void Rasterizer::AddTriangleFromObjWithTexture(const std::string &filename, cons
       std::array<cv::Vec3d, 3> faceVertexes;
       std::array<cv::Vec3d, 3> faceNormals;
       std::array<cv::Vec2d, 3> faceTextureCoords;
-      std::array<cv::Vec3d, 3> faceColors;
 
       for (int i = 0; i < 3; ++i) {
         int index0, index1, index2;
@@ -75,21 +75,10 @@ void Rasterizer::AddTriangleFromObjWithTexture(const std::string &filename, cons
         faceVertexes[i] = vertexes[index0 - 1];
         faceNormals[i] = normals[index1 - 1];
         faceTextureCoords[i] = textureCoords[index2 - 1];
-        // get color
-        double u = std::clamp(faceTextureCoords[i][0], 0.0, 1.0);
-        double v = std::clamp(faceTextureCoords[i][1], 0.0, 1.0);
-        v = 1.0 - v;
-        int x = static_cast<int>(u * (texture.cols - 1));
-        int y = static_cast<int>(v * (texture.rows - 1));
-
-        faceColors[i][0] = texture.at<cv::Vec3b>(y, x)[0] / 255.;
-        faceColors[i][1] = texture.at<cv::Vec3b>(y, x)[1] / 255.;
-        faceColors[i][2] = texture.at<cv::Vec3b>(y, x)[2] / 255.;
       }
       triangle.SetVertexes(faceVertexes);
       triangle.SetNormals(faceNormals);
       triangle.SetTextureCoords(faceTextureCoords);
-      triangle.SetColors(faceColors);
       triangles.push_back(triangle);
     }
   }
@@ -102,7 +91,7 @@ void Rasterizer::rasterize() {
 
   for (const auto &tri : triangles) {
     Triangle tri_clipspace;
-    tri_clipspace.SetColors({tri.ac(), tri.bc(), tri.cc()});
+    tri_clipspace.SetTextureCoords(tri.getTextureCoords());
 
     std::array<cv::Vec4d, 3> mm;
     mm[0] = viewMatrix * modelMatrix * tri.a4();
@@ -167,13 +156,12 @@ void Rasterizer::rasterizeTriangle(const Triangle &triangle_clipspace, const std
         zp *= Z;
         if (zp < zbuffer[y * global::width + x]) {
           zbuffer[y * global::width + x] = zp;
-          auto interp_color = alpha * triangle_clipspace.ac() + beta * triangle_clipspace.bc() + gamma * triangle_clipspace.cc();
           auto interp_normal = alpha * triangle_clipspace.an() + beta * triangle_clipspace.bn() + gamma * triangle_clipspace.cn();
           auto interp_textureCoord = alpha * triangle_clipspace.getTextureCoords()[0] +
                                      beta * triangle_clipspace.getTextureCoords()[1] +
                                      gamma * triangle_clipspace.getTextureCoords()[2];
           auto interp_shadingCoord = alpha * viewspace_pos[0] + beta * viewspace_pos[1] + gamma * viewspace_pos[2];
-          auto color = BillnPhongShading(interp_color, interp_shadingCoord, cv::normalize(interp_normal), interp_textureCoord);
+          auto color = BillnPhongShading(interp_shadingCoord, cv::normalize(interp_normal), interp_textureCoord);
           setPixel(x, y, color);
         }
       }
@@ -207,13 +195,22 @@ std::tuple<float, float, float> Rasterizer::computeBarycentric2D(float x, float 
   return {c1, c2, c3};
 }
 
-cv::Vec3d Rasterizer::BillnPhongShading(const cv::Vec3d color, const cv::Vec3d &point, const cv::Vec3d &normal,
-                                        const cv::Vec2d texCoord) {
-  cv::Vec3d ka = cv::Vec3d(0.005, 0.005, 0.005);    // Ambient light color
-  cv::Vec3d kd = color;                             // Diffuse light color
+// return [0,255.]
+cv::Vec3d Rasterizer::getTexColor(double u, double v) const {
+  u = std::clamp(u, 0., 1.);
+  v = std::clamp(v, 0., 1.);
+  return cv::Vec3d(
+      texture.at<cv::Vec3b>(static_cast<int>((1 - v) * (texture.rows - 1)), static_cast<int>(u * (texture.cols - 1))));
+}
+
+cv::Vec3d Rasterizer::BillnPhongShading(const cv::Vec3d &point, const cv::Vec3d &normal, const cv::Vec2d texCoord) {
+  cv::Vec3d ka = cv::Vec3d(0.005, 0.005, 0.005);               // Ambient light color
+  cv::Vec3d kd = getTexColor(texCoord[0], texCoord[1]) / 255.; // Diffuse light color
+  // std::cout << "kd: " << kd << std::endl;
+  // std::cout << "coord: " << texCoord[0] << " " << texCoord[1] << std::endl;
   cv::Vec3d ks = cv::Vec3d(0.7937, 0.7937, 0.7937); // Specular light color
 
-  cv::Vec3d result_color = cv::Vec3d(0, 0, 0);
+  cv::Vec3d result_color = {0., 0., 0.};
   for (const auto &light : lights) {
     // diffuse
     cv::Vec3d L = cv::normalize(light.position - point);
